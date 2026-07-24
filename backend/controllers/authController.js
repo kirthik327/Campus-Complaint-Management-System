@@ -199,7 +199,7 @@ exports.forgotPassword = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Please provide your registered college email' });
     }
 
-    const normalizedEmail = email.toLowerCase();
+    const normalizedEmail = email.trim().toLowerCase();
 
     // Standardized generic message to prevent account enumeration
     const genericResponse = {
@@ -229,11 +229,14 @@ exports.forgotPassword = async (req, res) => {
 
     try {
       await sendOTPEmail(normalizedEmail, plainOtp);
+      return res.status(200).json(genericResponse);
     } catch (emailErr) {
       console.error('Failed to dispatch OTP email:', emailErr.message);
+      return res.status(500).json({
+        success: false,
+        message: 'Unable to send verification email. Please check server email service configuration.',
+      });
     }
-
-    return res.status(200).json(genericResponse);
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -339,7 +342,7 @@ exports.resendOtp = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Please provide registered email' });
     }
 
-    const normalizedEmail = email.toLowerCase();
+    const normalizedEmail = email.trim().toLowerCase();
     const existingOtp = await OTP.findOne({ email: normalizedEmail }).sort({ createdAt: -1 });
 
     if (existingOtp) {
@@ -366,14 +369,17 @@ exports.resendOtp = async (req, res) => {
 
     try {
       await sendOTPEmail(normalizedEmail, plainOtp);
+      return res.status(200).json({
+        success: true,
+        message: 'If an account exists with this email address, a new verification code has been sent.',
+      });
     } catch (emailErr) {
       console.error('Failed to resend OTP email:', emailErr.message);
+      return res.status(500).json({
+        success: false,
+        message: 'Unable to resend verification email. Please check server email service configuration.',
+      });
     }
-
-    return res.status(200).json({
-      success: true,
-      message: 'If an account exists with this email address, a new verification code has been sent.',
-    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

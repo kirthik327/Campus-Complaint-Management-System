@@ -1,11 +1,24 @@
 const nodemailer = require('nodemailer');
 const https = require('https');
 
+// Safe masking helper for log diagnostics (e.g. k****@gmail.com)
+const maskEmailForLog = (email) => {
+  if (!email || !email.includes('@')) return '****';
+  const [user, domain] = email.split('@');
+  const maskedUser = user.length > 2 ? `${user[0]}****${user[user.length - 1]}` : `${user[0]}****`;
+  return `${maskedUser}@${domain}`;
+};
+
 // Helper to send email via Resend HTTP API
 const sendViaResend = (apiKey, fromAddress, toEmail, subject, htmlContent, textContent) => {
   return new Promise((resolve, reject) => {
+    // For Resend free tier without a verified domain, sender MUST be onboarding@resend.dev
+    const validFrom = fromAddress && fromAddress.includes('@') && !fromAddress.includes('ccms.edu')
+      ? fromAddress
+      : 'CCMS Portal <onboarding@resend.dev>';
+
     const postData = JSON.stringify({
-      from: fromAddress || 'CCMS Portal <onboarding@resend.dev>',
+      from: validFrom,
       to: [toEmail],
       subject: subject,
       html: htmlContent,
@@ -24,23 +37,31 @@ const sendViaResend = (apiKey, fromAddress, toEmail, subject, htmlContent, textC
       },
     };
 
+    console.log(`[EMAIL SERVICE] Dispatching Resend API request to ${maskEmailForLog(toEmail)} from ${validFrom}...`);
+
     const req = https.request(options, (res) => {
       let data = '';
       res.on('data', (chunk) => (data += chunk));
       res.on('end', () => {
         if (res.statusCode >= 200 && res.statusCode < 300) {
           try {
-            resolve(JSON.parse(data));
+            const parsed = JSON.parse(data);
+            console.log(`[EMAIL SERVICE] Resend Success! Message ID: ${parsed.id || 'N/A'}`);
+            resolve(parsed);
           } catch (e) {
             resolve(data);
           }
         } else {
+          console.error(`[EMAIL SERVICE] Resend API Error HTTP ${res.statusCode}: ${data}`);
           reject(new Error(`Resend API Error ${res.statusCode}: ${data}`));
         }
       });
     });
 
-    req.on('error', (e) => reject(e));
+    req.on('error', (e) => {
+      console.error(`[EMAIL SERVICE] Resend Network Error: ${e.message}`);
+      reject(e);
+    });
     req.write(postData);
     req.end();
   });
@@ -50,7 +71,14 @@ const sendViaResend = (apiKey, fromAddress, toEmail, subject, htmlContent, textC
 const sendViaNodemailer = async (toEmail, subject, htmlContent, textContent) => {
   const emailUser = process.env.EMAIL_USER;
   const emailPass = process.env.EMAIL_PASS;
-  const emailFrom = process.env.EMAIL_FROM || emailUser || 'no-reply@ccms.edu';
+
+  if (!emailUser || !emailPass) {
+    throw new Error('Nodemailer SMTP credentials missing: EMAIL_USER and EMAIL_PASS environment variables are not set.');
+  }
+
+  const emailFrom = process.env.EMAIL_FROM || emailUser;
+
+  console.log(`[EMAIL SERVICE] Dispatching Nodemailer SMTP email to ${maskEmailForLog(toEmail)} via ${emailUser}...`);
 
   const transporter = nodemailer.createTransport({
     service: 'gmail',
@@ -60,18 +88,24 @@ const sendViaNodemailer = async (toEmail, subject, htmlContent, textContent) => 
     },
   });
 
-  return await transporter.sendMail({
+  const result = await transporter.sendMail({
     from: `"Campus Complaint Management System" <${emailFrom}>`,
     to: toEmail,
     subject: subject,
     text: textContent,
     html: htmlContent,
   });
+
+  console.log(`[EMAIL SERVICE] Nodemailer Success! Message ID: ${result.messageId}`);
+  return result;
 };
 
 const sendOTPEmail = async (toEmail, otpCode) => {
+  const normalizedEmail = toEmail.trim().toLowerCase();
   const resendKey = process.env.RESEND_API_KEY;
-  const emailFrom = process.env.EMAIL_FROM || 'CCMS Security <no-reply@ccms.edu>';
+  const emailUser = process.env.EMAIL_USER;
+  const emailPass = process.env.EMAIL_PASS;
+  const emailFrom = process.env.EMAIL_FROM;
   const subject = 'CCMS Password Reset Verification Code';
 
   const textContent = `Hello,
@@ -116,19 +150,27 @@ Campus Complaint Management System`;
     </div>
   `;
 
-  // Use Resend if API key is configured; otherwise fallback to Nodemailer SMTP
-  if (resendKey) {
+  // 1. Try Resend API if key is present
+  if (resendKey && resendKey.trim() !== '') {
     try {
-      console.log(`Sending OTP via Resend API to ${toEmail}...`);
-      return await sendViaResend(resendKey, emailFrom, toEmail, subject, htmlContent, textContent);
+      return await sendViaResend(resendKey, emailFrom, normalizedEmail, subject, htmlContent, textContent);
     } catch (resendErr) {
-      console.warn('Resend API failed, trying Nodemailer SMTP fallback:', resendErr.message);
+      console.warn(`[EMAIL SERVICE] Resend attempt failed: ${resendErr.message}. Attempting Nodemailer fallback...`);
     }
   }
 
-  // Nodemailer fallback
-  console.log(`Sending OTP via Nodemailer to ${toEmail}...`);
-  return await sendViaNodemailer(toEmail, subject, htmlContent, textContent);
+  // 2. Try Nodemailer SMTP
+  if (emailUser && emailPass) {
+    try {
+      return await sendViaNodemailer(normalizedEmail, subject, htmlContent, textContent);
+    } catch (nodemailerErr) {
+      console.error(`[EMAIL SERVICE] Nodemailer SMTP attempt failed: ${nodemailerErr.message}`);
+      throw new Error(`Email Delivery Failed: ${nodemailerErr.message}`);
+    }
+  }
+
+  // 3. No email providers configured
+  throw new Error('No valid email service credentials configured on backend server. Please set RESEND_API_KEY or EMAIL_USER & EMAIL_PASS in backend environment variables.');
 };
 
 module.exports = {
