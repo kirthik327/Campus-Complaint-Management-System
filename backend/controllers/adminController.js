@@ -257,23 +257,23 @@ exports.createStaffAdmin = async (req, res) => {
       });
     }
 
-    const { name, email, password, department, employeeId } = req.body;
+    const { name, email, password, department } = req.body;
 
     if (!name || !email || !password || !department) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide Name, Username/Email, Password, and Department.',
+        message: 'Please provide Name, Email Address, Password, and Department.',
       });
     }
 
     const normalizedEmail = email.trim().toLowerCase();
 
-    // Check if username/email already taken
+    // Check if email already taken
     const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) {
       return res.status(400).json({
         success: false,
-        message: 'Username / Email address already registered.',
+        message: 'Email address already registered.',
       });
     }
 
@@ -282,7 +282,6 @@ exports.createStaffAdmin = async (req, res) => {
       email: normalizedEmail,
       password,
       department,
-      employeeId: employeeId || `EMP-${Math.floor(100 + Math.random() * 900)}`,
       role: 'admin',
     });
 
@@ -294,7 +293,6 @@ exports.createStaffAdmin = async (req, res) => {
         name: newStaff.name,
         email: newStaff.email,
         department: newStaff.department,
-        employeeId: newStaff.employeeId,
         role: newStaff.role,
       },
     });
@@ -302,4 +300,45 @@ exports.createStaffAdmin = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+// @desc    Delete user account (Student or Admin) (Super Admin only)
+// @route   DELETE /api/admin/users/:id
+// @access  Private (Super Admin only)
+exports.deleteUserAccount = async (req, res) => {
+  try {
+    if (req.user.role !== 'superadmin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Forbidden: Only Super Admins can remove user accounts.',
+      });
+    }
+
+    const targetUserId = req.params.id;
+
+    if (targetUserId === req.user.id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot delete your own active Super Admin account.',
+      });
+    }
+
+    const targetUser = await User.findById(targetUserId);
+    if (!targetUser) {
+      return res.status(404).json({
+        success: false,
+        message: 'User account not found.',
+      });
+    }
+
+    await User.findByIdAndDelete(targetUserId);
+
+    res.status(200).json({
+      success: true,
+      message: `${targetUser.role === 'student' ? 'Student' : 'Staff Admin'} account (${targetUser.name}) removed successfully.`,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 

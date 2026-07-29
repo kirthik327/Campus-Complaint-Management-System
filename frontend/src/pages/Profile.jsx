@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { User, Mail, BookOpen, GraduationCap, Calendar, ShieldCheck, Edit3, Save, X, Lock, Eye, EyeOff, KeyRound } from 'lucide-react';
+import { User, Mail, BookOpen, GraduationCap, Calendar, ShieldCheck, Edit3, Save, X, Lock, Eye, EyeOff } from 'lucide-react';
 
 const Profile = () => {
   const { user, updateProfile } = useAuth();
@@ -10,7 +10,6 @@ const Profile = () => {
   const [department, setDepartment] = useState('');
   const [year, setYear] = useState('');
   const [rollNumber, setRollNumber] = useState('');
-  const [employeeId, setEmployeeId] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -42,7 +41,6 @@ const Profile = () => {
       setDepartment(user.department || '');
       setYear(user.year || 'N/A');
       setRollNumber(user.rollNumber || '');
-      setEmployeeId(user.employeeId || '');
       setNewPassword('');
       setConfirmPassword('');
     }
@@ -55,7 +53,7 @@ const Profile = () => {
       return;
     }
 
-    if (user.role === 'student' && !email.includes('@')) {
+    if (!email.includes('@')) {
       setError('Please enter a valid email address.');
       return;
     }
@@ -88,15 +86,13 @@ const Profile = () => {
 
     if (user.role === 'student') {
       profileData.year = year;
-    } else {
-      profileData.employeeId = employeeId;
     }
 
     const result = await updateProfile(profileData);
     setSaving(false);
 
     if (result.success) {
-      setSuccess('Profile and password updated successfully!');
+      setSuccess('Profile updated successfully!');
       setEditing(false);
       setNewPassword('');
       setConfirmPassword('');
@@ -115,7 +111,7 @@ const Profile = () => {
         <div>
           <h2 className="text-2xl font-bold tracking-tight text-slate-800 dark:text-white">Profile Settings</h2>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            View and manage your account details and security password
+            View and manage your account details and password
           </p>
         </div>
         {!editing ? (
@@ -181,23 +177,31 @@ const Profile = () => {
                 )}
                 <div>
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                    {user.role === 'student' ? 'Register Number' : 'Username / Email'}
+                    Full Name
                   </span>
                   <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 mt-0.5">
-                    {user.role === 'student' ? user.rollNumber : user.email}
+                    {user.name}
                   </p>
                 </div>
               </div>
 
               {user.role === 'student' && (
                 <div className="flex items-start gap-3">
-                  <Mail className="h-5 w-5 text-slate-400 mt-0.5" />
+                  <GraduationCap className="h-5 w-5 text-slate-400 mt-0.5" />
                   <div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Email Address</span>
-                    <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 mt-0.5">{user.email}</p>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Register Number</span>
+                    <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 mt-0.5">{user.rollNumber}</p>
                   </div>
                 </div>
               )}
+
+              <div className="flex items-start gap-3">
+                <Mail className="h-5 w-5 text-slate-400 mt-0.5" />
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Email Address</span>
+                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 mt-0.5">{user.email}</p>
+                </div>
+              </div>
 
               <div className="flex items-start gap-3">
                 <BookOpen className="h-5 w-5 text-slate-400 mt-0.5" />
@@ -207,20 +211,12 @@ const Profile = () => {
                 </div>
               </div>
 
-              {user.role === 'student' ? (
+              {user.role === 'student' && (
                 <div className="flex items-start gap-3">
                   <Calendar className="h-5 w-5 text-slate-400 mt-0.5" />
                   <div>
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Year of Study</span>
                     <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 mt-0.5">{user.year}</p>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-start gap-3">
-                  <KeyRound className="h-5 w-5 text-slate-400 mt-0.5" />
-                  <div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Employee ID</span>
-                    <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 mt-0.5">{user.employeeId || 'EMP-001'}</p>
                   </div>
                 </div>
               )}
@@ -241,32 +237,6 @@ const Profile = () => {
                 />
               </div>
 
-              {user.role === 'student' ? (
-                <div>
-                  <label className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Register Number (Locked)</label>
-                  <input
-                    type="text"
-                    disabled={true}
-                    value={rollNumber}
-                    className="mt-1.5 w-full rounded-2xl border border-slate-100/80 bg-slate-50/50 py-3.5 px-4 text-sm text-slate-400 outline-none dark:border-slate-800/80 dark:bg-slate-950/40 dark:text-slate-500"
-                  />
-                </div>
-              ) : (
-                <div>
-                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Username / Email</label>
-                  <input
-                    type="text"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="mt-1.5 w-full rounded-2xl border border-slate-200 py-3.5 px-4 text-sm bg-transparent outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/10 dark:border-slate-800 dark:text-white font-mono"
-                    disabled={saving}
-                  />
-                </div>
-              )}
-            </div>
-
-            {user.role === 'student' && (
               <div>
                 <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Email Address</label>
                 <input
@@ -278,7 +248,7 @@ const Profile = () => {
                   disabled={saving}
                 />
               </div>
-            )}
+            </div>
 
             <div className={user.role === 'student' ? "grid grid-cols-1 gap-4 sm:grid-cols-2" : "w-full"}>
               <div>

@@ -22,6 +22,7 @@ import {
   UserPlus,
   X,
   Lock,
+  UserX,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -75,7 +76,6 @@ const Dashboard = () => {
   const [newStaffEmail, setNewStaffEmail] = useState('');
   const [newStaffPassword, setNewStaffPassword] = useState('');
   const [newStaffDept, setNewStaffDept] = useState('Computer Science and Engineering');
-  const [newStaffEmpId, setNewStaffEmpId] = useState('');
   const [staffCreating, setStaffCreating] = useState(false);
   const [staffError, setStaffError] = useState('');
   const [staffSuccess, setStaffSuccess] = useState('');
@@ -182,6 +182,25 @@ const Dashboard = () => {
     }
   };
 
+  const handleDeleteUserAccount = async (targetId, targetName, targetRole) => {
+    if (!window.confirm(`Are you sure you want to permanently remove the ${targetRole} account for "${targetName}"? This cannot be undone.`)) {
+      return;
+    }
+    try {
+      const res = await axios.delete(`/api/admin/users/${targetId}`);
+      if (res.data.success) {
+        alert(res.data.message);
+        if (targetRole === 'student') {
+          fetchStudents();
+        } else {
+          fetchAdminStats();
+        }
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to remove user account.');
+    }
+  };
+
   const handleAssign = async (id) => {
     if (!selectedStaff) return;
     try {
@@ -230,7 +249,6 @@ const Dashboard = () => {
         email: newStaffEmail,
         password: newStaffPassword,
         department: newStaffDept,
-        employeeId: newStaffEmpId,
       });
 
       setStaffCreating(false);
@@ -239,7 +257,6 @@ const Dashboard = () => {
         setNewStaffName('');
         setNewStaffEmail('');
         setNewStaffPassword('');
-        setNewStaffEmpId('');
         fetchAdminStats();
         setTimeout(() => {
           setShowAddStaffModal(false);
@@ -950,7 +967,8 @@ const Dashboard = () => {
                     <th className="pb-3">Register Number</th>
                     <th className="pb-3">Email Address</th>
                     <th className="pb-3">Department</th>
-                    <th className="pb-3 pr-4">Year of Study</th>
+                    <th className="pb-3">Year of Study</th>
+                    {user?.role === 'superadmin' && <th className="pb-3 pr-4 text-right">Actions</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50 dark:divide-slate-800/40">
@@ -960,13 +978,24 @@ const Dashboard = () => {
                       <td className="py-4 font-mono font-semibold text-slate-600 dark:text-slate-300">{student.rollNumber}</td>
                       <td className="py-4 text-slate-500 dark:text-slate-400">{student.email || 'N/A'}</td>
                       <td className="py-4 font-semibold text-slate-600 dark:text-slate-300">{student.department || 'N/A'}</td>
-                      <td className="py-4 pr-4 font-semibold text-slate-600 dark:text-slate-300">{student.year || 'N/A'}</td>
+                      <td className="py-4 font-semibold text-slate-600 dark:text-slate-300">{student.year || 'N/A'}</td>
+                      {user?.role === 'superadmin' && (
+                        <td className="py-4 pr-4 text-right">
+                          <button
+                            onClick={() => handleDeleteUserAccount(student._id, student.name, 'student')}
+                            className="flex h-8 w-8 items-center justify-center rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 dark:bg-rose-950/20 dark:text-rose-400 transition-all ml-auto"
+                            title="Remove Student Account"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
               </table>
             ) : (
-              <div className="text-center py-12 text-sm text-slate-400">No registered students found. Registration is 100% fresh!</div>
+              <div className="text-center py-12 text-sm text-slate-400">No registered students found.</div>
             )}
           </div>
         )}
@@ -979,10 +1008,10 @@ const Dashboard = () => {
                 <thead>
                   <tr className="border-b border-slate-100 dark:border-slate-800 text-[10px] font-bold uppercase tracking-wider text-slate-400">
                     <th className="pb-3 pl-4">Staff / Admin Name</th>
-                    <th className="pb-3">Username / Email</th>
+                    <th className="pb-3">Email Address</th>
                     <th className="pb-3">Department</th>
-                    <th className="pb-3">Employee ID</th>
-                    <th className="pb-3 pr-4">Account Role</th>
+                    <th className="pb-3">Account Role</th>
+                    {user?.role === 'superadmin' && <th className="pb-3 pr-4 text-right">Actions</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50 dark:divide-slate-800/40">
@@ -994,14 +1023,28 @@ const Dashboard = () => {
                       </td>
                       <td className="py-4 font-mono font-semibold text-slate-600 dark:text-slate-300">{st.email}</td>
                       <td className="py-4 font-semibold text-slate-600 dark:text-slate-300">{st.department || 'N/A'}</td>
-                      <td className="py-4 font-mono text-slate-500 dark:text-slate-400">{st.employeeId || 'EMP-001'}</td>
-                      <td className="py-4 pr-4">
+                      <td className="py-4">
                         <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[9px] font-bold uppercase ${
                           st.role === 'superadmin' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300' : 'bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300'
                         }`}>
                           {st.role}
                         </span>
                       </td>
+                      {user?.role === 'superadmin' && (
+                        <td className="py-4 pr-4 text-right">
+                          {st._id !== user._id && st.role !== 'superadmin' ? (
+                            <button
+                              onClick={() => handleDeleteUserAccount(st._id, st.name, 'admin')}
+                              className="flex h-8 w-8 items-center justify-center rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 dark:bg-rose-950/20 dark:text-rose-400 transition-all ml-auto"
+                              title="Remove Staff Account"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          ) : (
+                            <span className="text-[10px] text-slate-400 italic pr-2">Primary Admin</span>
+                          )}
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -1061,14 +1104,14 @@ const Dashboard = () => {
               </div>
 
               <div>
-                <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Username / Email</label>
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Email Address</label>
                 <input
-                  type="text"
+                  type="email"
                   required
                   value={newStaffEmail}
                   onChange={(e) => setNewStaffEmail(e.target.value)}
-                  placeholder="e.g. nit.incharge.eee"
-                  className="mt-1 w-full rounded-2xl border border-slate-200 py-3 px-4 text-xs bg-transparent outline-none focus:border-primary dark:border-slate-800 dark:text-white font-mono"
+                  placeholder="e.g. sarah.jenkins@college.edu"
+                  className="mt-1 w-full rounded-2xl border border-slate-200 py-3 px-4 text-xs bg-transparent outline-none focus:border-primary dark:border-slate-800 dark:text-white"
                   disabled={staffCreating}
                 />
               </div>
@@ -1096,18 +1139,6 @@ const Dashboard = () => {
                   onChange={(e) => setNewStaffPassword(e.target.value)}
                   placeholder="••••••••"
                   className="mt-1 w-full rounded-2xl border border-slate-200 py-3 px-4 text-xs bg-transparent outline-none focus:border-primary dark:border-slate-800 dark:text-white"
-                  disabled={staffCreating}
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Employee ID (Optional)</label>
-                <input
-                  type="text"
-                  value={newStaffEmpId}
-                  onChange={(e) => setNewStaffEmpId(e.target.value)}
-                  placeholder="e.g. EMP-003"
-                  className="mt-1 w-full rounded-2xl border border-slate-200 py-3 px-4 text-xs bg-transparent outline-none focus:border-primary dark:border-slate-800 dark:text-white font-mono"
                   disabled={staffCreating}
                 />
               </div>

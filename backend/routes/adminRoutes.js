@@ -6,6 +6,7 @@ const {
   getStaffList,
   getStudentsList,
   createStaffAdmin,
+  deleteUserAccount,
 } = require('../controllers/adminController');
 const { protect, authorize } = require('../middleware/authMiddleware');
 
@@ -18,6 +19,7 @@ router.get('/stats', getDashboardStats);
 router.get('/staff', getStaffList);
 router.get('/students', getStudentsList);
 router.post('/create-staff', createStaffAdmin);
+router.delete('/users/:id', deleteUserAccount);
 router.put('/assign/:id', assignComplaint);
 router.put('/status/:id', updateComplaintStatus);
 

@@ -116,20 +116,20 @@ const Login = () => {
         <form onSubmit={handleSubmit} className="mt-6 space-y-4.5">
           <div>
             <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-              {loginRole === 'student' ? 'Register Number or Email' : 'Username'}
+              {loginRole === 'student' ? 'Register Number or Email' : 'Email Address'}
             </label>
             <div className="relative mt-1.5">
               {loginRole === 'student' ? (
                 <GraduationCap className="absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2 text-slate-400" />
               ) : (
-                <User className="absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Mail className="absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2 text-slate-400" />
               )}
               <input
                 type="text"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder={loginRole === 'student' ? '721021104001' : ''}
+                placeholder={loginRole === 'student' ? '721021104001' : 'admin@college.edu'}
                 autoComplete="off"
                 className="w-full rounded-2xl border border-slate-200 py-3.5 pr-4 pl-11 text-sm bg-transparent outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/10 dark:border-slate-800 dark:text-white"
                 disabled={submitting}
