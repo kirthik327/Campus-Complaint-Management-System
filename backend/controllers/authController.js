@@ -438,3 +438,19 @@ exports.resetPassword = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+// @desc    Clear all student logins to start registration fresh
+// @route   POST /api/auth/clear-students
+// @access  Public
+exports.clearStudentsFresh = async (req, res) => {
+  try {
+    const result = await User.deleteMany({ role: 'student' });
+    res.status(200).json({
+      success: true,
+      message: `Cleared ${result.deletedCount} student accounts successfully. Student registration is now 100% fresh!`,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+

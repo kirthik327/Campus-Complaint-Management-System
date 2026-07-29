@@ -38,21 +38,9 @@ const seedDatabase = async () => {
       employeeId: 'EMP-002',
     });
 
-    // 3. Create Student
-    const student = await User.create({
-      name: 'Aditya Sen',
-      email: '721021104001',
-      password: 'Student@123',
-      role: 'student',
-      department: 'Computer Science and Engineering',
-      rollNumber: '721021104001',
-      year: '3rd Year',
-    });
-
     console.log('Users created successfully:');
     console.log('  - Super Admin: nit.principal.123 / nit@principal#123');
     console.log('  - Staff Admin: nit.incharge.123 / nit@incharge#123');
-    console.log('  - Student:     721021104001 / Student@123');
 
     console.log('Seeding completed successfully!');
     mongoose.connection.close();

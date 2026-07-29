@@ -29,17 +29,7 @@ const seedInMemoryDatabase = async () => {
       employeeId: 'EMP-002',
     });
 
-    // Create Student
-    const student = await User.create({
-      name: 'Aditya Sen',
-      email: 'student@college.edu',
-      password: 'Student@123',
-      role: 'student',
-      department: 'Computer Science',
-      rollNumber: 'CS-2023-045',
-      year: '3rd Year',
-    });
-    console.log('In-Memory Database Seeded successfully!');
+    console.log('In-Memory Database Seeded with Admin Accounts successfully!');
   } catch (seedErr) {
     console.error('Error seeding in-memory database:', seedErr.message);
   }
