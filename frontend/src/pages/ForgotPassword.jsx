@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Mail, Shield, ArrowLeft, KeyRound } from 'lucide-react';
-import { sendOTPApi } from '../services/authService';
+import { Mail, Shield, ArrowLeft, KeyRound, UserCheck, Sparkles } from 'lucide-react';
+import { verifyAccountForResetApi } from '../services/authService';
 import nitLogo from '../assets/nit-logo.jpg';
 import loginBg from '../assets/login-bg.jpg';
 
 const ForgotPassword = () => {
+  const [rollNumber, setRollNumber] = useState('');
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
   const [infoMessage, setInfoMessage] = useState('');
@@ -19,8 +20,13 @@ const ForgotPassword = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!rollNumber) {
+      setError('Please enter your Student Register Number.');
+      return;
+    }
+
     if (!email) {
-      setError('Please enter a valid registered college email address.');
+      setError('Please enter your registered college email address.');
       return;
     }
 
@@ -34,20 +40,20 @@ const ForgotPassword = () => {
     setSubmitting(true);
 
     try {
-      const res = await sendOTPApi(email);
+      const res = await verifyAccountForResetApi({ rollNumber, email });
       setSubmitting(false);
 
-      if (res.success) {
-        setInfoMessage(res.message);
+      if (res.success && res.resetToken) {
+        setInfoMessage('Account verified successfully! Redirecting to password reset...');
         setTimeout(() => {
-          navigate('/verify-otp');
-        }, 1200);
+          navigate('/reset-password');
+        }, 1000);
       } else {
         setError(res.message);
       }
     } catch (err) {
       setSubmitting(false);
-      setError('Failed to send verification code. Please try again.');
+      setError('Invalid Register Number or Registered Email. No matching account found.');
     }
   };
 
@@ -84,7 +90,7 @@ const ForgotPassword = () => {
             Forgot Your Password?
           </h2>
           <p className="text-center text-xs font-medium leading-relaxed text-slate-500 dark:text-slate-400">
-            Enter your registered college email address and we'll send you a verification code to reset your password.
+            Enter your Student Register Number and registered college email address to verify your account and reset your password.
           </p>
         </div>
 
@@ -104,9 +110,33 @@ const ForgotPassword = () => {
 
         {/* Form Inputs */}
         <form onSubmit={handleSubmit} className="mt-6 space-y-4.5">
+          {/* Section 1: Register Number */}
           <div>
             <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-              Registered College Email
+              Section 1: Student Register Number
+            </label>
+            <div className="relative mt-1.5">
+              <UserCheck className="absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                required
+                value={rollNumber}
+                onChange={(e) => setRollNumber(e.target.value)}
+                placeholder="e.g. 721023205032"
+                autoComplete="off"
+                className="w-full rounded-2xl border border-slate-200 py-3.5 pr-4 pl-11 text-sm bg-transparent outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/10 dark:border-slate-800 dark:text-white font-mono"
+                disabled={submitting}
+              />
+            </div>
+            <span className="text-[10px] text-slate-400 mt-1 block">
+              Enter your official college Register Number
+            </span>
+          </div>
+
+          {/* Section 2: Registered Email Address */}
+          <div>
+            <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              Section 2: Registered College Email
             </label>
             <div className="relative mt-1.5">
               <Mail className="absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -121,8 +151,8 @@ const ForgotPassword = () => {
                 disabled={submitting}
               />
             </div>
-            <span className="text-[10px] text-slate-400 mt-1.5 block">
-              We'll send a 6-digit verification code to this email
+            <span className="text-[10px] text-slate-400 mt-1 block">
+              Enter the email address linked to your account
             </span>
           </div>
 
@@ -135,10 +165,13 @@ const ForgotPassword = () => {
             {submitting ? (
               <>
                 <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
-                Sending OTP...
+                Verifying Account...
               </>
             ) : (
-              'Send OTP'
+              <>
+                <Sparkles className="h-4 w-4" />
+                Verify Account & Reset Password
+              </>
             )}
           </button>
         </form>
@@ -149,9 +182,9 @@ const ForgotPassword = () => {
             <Shield className="h-4.5 w-4.5" />
           </div>
           <div className="text-left">
-            <h4 className="text-[11px] font-bold tracking-wide uppercase text-slate-700 dark:text-slate-250">Secure Verification</h4>
+            <h4 className="text-[11px] font-bold tracking-wide uppercase text-slate-700 dark:text-slate-250">Instant Verification</h4>
             <p className="mt-1 text-[10px] leading-relaxed text-slate-500 dark:text-slate-400">
-              The OTP is single-use, expires in 5 minutes, and will only be sent to your registered email address.
+              If your Register Number and Email match a registered account in our system, you will be allowed to set a new password immediately.
             </p>
           </div>
         </div>

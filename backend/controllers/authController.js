@@ -188,55 +188,49 @@ exports.updateProfile = async (req, res) => {
   }
 };
 
-// @desc    Send OTP to email for password recovery
+// @desc    Verify student account using Register Number and Email for password recovery
 // @route   POST /api/auth/forgot-password
 // @access  Public
 exports.forgotPassword = async (req, res) => {
   try {
-    const { email } = req.body;
+    const { rollNumber, email } = req.body;
 
-    if (!email) {
-      return res.status(400).json({ success: false, message: 'Please provide your registered college email' });
+    if (!rollNumber || !email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide both your Student Register Number and registered college email address.',
+      });
     }
 
+    const trimmedRoll = rollNumber.trim();
     const normalizedEmail = email.trim().toLowerCase();
 
-    // Standardized generic message to prevent account enumeration
-    const genericResponse = {
-      success: true,
-      message: 'If an account exists with this email address, a verification code has been sent.',
-    };
-
-    const user = await User.findOne({ email: normalizedEmail });
+    // Query user matching BOTH rollNumber AND email
+    const user = await User.findOne({ rollNumber: trimmedRoll, email: normalizedEmail });
     if (!user) {
-      // Return generic success to prevent account enumeration
-      return res.status(200).json(genericResponse);
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid Register Number or Registered Email. No matching student account found.',
+      });
     }
 
-    // Invalidate/delete any existing active OTP for this email
-    await OTP.deleteMany({ email: normalizedEmail });
+    // Generate secure 64-char reset token
+    const plainResetToken = generateResetToken();
+    const tokenHash = hashSHA256(plainResetToken);
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 Minutes TTL
 
-    // Generate cryptographically secure 6-digit OTP
-    const plainOtp = generateOTP();
-    const otpHash = hashSHA256(plainOtp);
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 Minutes Expiry
-
-    await OTP.create({
+    await ResetToken.deleteMany({ email: normalizedEmail });
+    await ResetToken.create({
       email: normalizedEmail,
-      otpHash,
+      tokenHash,
       expiresAt,
     });
 
-    try {
-      await sendOTPEmail(normalizedEmail, plainOtp);
-      return res.status(200).json(genericResponse);
-    } catch (emailErr) {
-      console.error('Failed to dispatch OTP email:', emailErr.message);
-      return res.status(500).json({
-        success: false,
-        message: 'Unable to send verification email. Please check server email service configuration.',
-      });
-    }
+    return res.status(200).json({
+      success: true,
+      message: 'Account verified successfully! You can now reset your password.',
+      resetToken: plainResetToken,
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

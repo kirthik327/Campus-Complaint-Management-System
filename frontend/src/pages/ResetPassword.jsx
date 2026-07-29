@@ -96,7 +96,7 @@ const ResetPassword = () => {
           <p className="text-center text-xs font-medium leading-relaxed text-slate-500 dark:text-slate-400">
             {isSuccess
               ? 'Your password has been updated successfully. You can now log in with your new password.'
-              : 'Your email has been verified. Please choose a strong new password for your account.'}
+              : 'Your account has been verified. Please choose a strong new password for your account.'}
           </p>
         </div>
 

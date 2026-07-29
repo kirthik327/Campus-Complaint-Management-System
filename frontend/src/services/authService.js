@@ -49,79 +49,24 @@ export const clearResetSession = () => {
   }
 };
 
-// 1. Send OTP to email
-export const sendOTPApi = async (email) => {
+// 1. Verify Register Number + Email to obtain Reset Token
+export const verifyAccountForResetApi = async ({ rollNumber, email }) => {
   try {
-    const response = await api.post('/api/auth/forgot-password', { email });
-    saveResetSession(email);
-    return {
-      success: true,
-      message: response.data.message || 'If an account exists with this email address, a verification code has been sent.',
-    };
-  } catch (error) {
-    const message = error.response?.data?.message || 'Failed to send verification code. Please try again.';
-    return {
-      success: false,
-      message,
-    };
-  }
-};
-
-// 2. Verify 6-digit OTP
-export const verifyOTPApi = async (otp) => {
-  const email = getResetEmail();
-  if (!email) {
-    return {
-      success: false,
-      reason: 'NO_SESSION',
-      message: 'No active session found. Please enter your email address again.',
-    };
-  }
-
-  try {
-    const response = await api.post('/api/auth/verify-otp', { email, otp });
-    
+    const response = await api.post('/api/auth/forgot-password', { rollNumber, email });
     if (response.data.success && response.data.resetToken) {
       saveResetSession(email, response.data.resetToken);
       return {
         success: true,
-        message: 'Email Verified Successfully',
+        message: response.data.message || 'Account verified successfully!',
         resetToken: response.data.resetToken,
       };
     }
-
     return {
       success: false,
-      message: response.data.message || 'Verification failed.',
+      message: response.data.message || 'Verification failed. Please check your details.',
     };
   } catch (error) {
-    const data = error.response?.data || {};
-    return {
-      success: false,
-      reason: data.reason || 'ERROR',
-      message: data.message || 'Invalid OTP. Please check the code and try again.',
-    };
-  }
-};
-
-// 3. Resend OTP
-export const resendOTPApi = async () => {
-  const email = getResetEmail();
-  if (!email) {
-    return {
-      success: false,
-      message: 'No active session found. Please enter your email again.',
-    };
-  }
-
-  try {
-    const response = await api.post('/api/auth/resend-otp', { email });
-    return {
-      success: true,
-      message: response.data.message || 'A new verification code has been sent to your email.',
-    };
-  } catch (error) {
-    const message = error.response?.data?.message || 'Failed to resend verification code. Please try again.';
+    const message = error.response?.data?.message || 'Invalid Register Number or Registered Email. No matching account found.';
     return {
       success: false,
       message,
@@ -129,13 +74,18 @@ export const resendOTPApi = async () => {
   }
 };
 
-// 4. Reset Password with Reset Token
+// Legacy fallback helper mapping sendOTPApi to 2-field verification if called
+export const sendOTPApi = async (email) => {
+  return verifyAccountForResetApi({ rollNumber: '', email });
+};
+
+// 2. Reset Password with Reset Token
 export const resetPasswordApi = async (newPassword) => {
   const resetToken = getResetToken();
   if (!resetToken) {
     return {
       success: false,
-      message: 'Unauthorized access. Please verify your OTP code first.',
+      message: 'Unauthorized access. Please verify your Register Number and Email first.',
     };
   }
 
