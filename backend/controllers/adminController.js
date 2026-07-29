@@ -244,3 +244,62 @@ exports.getStudentsList = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+// @desc    Create new Admin / Staff account (Super Admin only)
+// @route   POST /api/admin/create-staff
+// @access  Private (Super Admin only)
+exports.createStaffAdmin = async (req, res) => {
+  try {
+    if (req.user.role !== 'superadmin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Forbidden: Only Super Admins have permission to add new Admin / Staff members.',
+      });
+    }
+
+    const { name, email, password, department, employeeId } = req.body;
+
+    if (!name || !email || !password || !department) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide Name, Username/Email, Password, and Department.',
+      });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    // Check if username/email already taken
+    const existingUser = await User.findOne({ email: normalizedEmail });
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: 'Username / Email address already registered.',
+      });
+    }
+
+    const newStaff = await User.create({
+      name,
+      email: normalizedEmail,
+      password,
+      department,
+      employeeId: employeeId || `EMP-${Math.floor(100 + Math.random() * 900)}`,
+      role: 'admin',
+    });
+
+    res.status(201).json({
+      success: true,
+      message: `Staff Admin account created successfully for ${newStaff.name}!`,
+      data: {
+        id: newStaff._id,
+        name: newStaff.name,
+        email: newStaff.email,
+        department: newStaff.department,
+        employeeId: newStaff.employeeId,
+        role: newStaff.role,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+

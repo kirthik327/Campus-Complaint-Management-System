@@ -18,6 +18,10 @@ import {
   Zap,
   TrendingUp,
   GraduationCap,
+  ShieldCheck,
+  UserPlus,
+  X,
+  Lock,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -63,7 +67,18 @@ const Dashboard = () => {
   const [selectedStatus, setSelectedStatus] = useState('');
   const [students, setStudents] = useState([]);
   const [loadingStudents, setLoadingStudents] = useState(false);
-  const [activeTab, setActiveTab] = useState('complaints'); // 'complaints' or 'students'
+  const [activeTab, setActiveTab] = useState('complaints'); // 'complaints', 'students', or 'staff'
+
+  // Super Admin Add Staff Modal States
+  const [showAddStaffModal, setShowAddStaffModal] = useState(false);
+  const [newStaffName, setNewStaffName] = useState('');
+  const [newStaffEmail, setNewStaffEmail] = useState('');
+  const [newStaffPassword, setNewStaffPassword] = useState('');
+  const [newStaffDept, setNewStaffDept] = useState('Computer Science and Engineering');
+  const [newStaffEmpId, setNewStaffEmpId] = useState('');
+  const [staffCreating, setStaffCreating] = useState(false);
+  const [staffError, setStaffError] = useState('');
+  const [staffSuccess, setStaffSuccess] = useState('');
 
   // Fetch Complaints
   const fetchComplaints = async () => {
@@ -91,7 +106,7 @@ const Dashboard = () => {
     }
   };
 
-  // Fetch Admin Stats
+  // Fetch Admin Stats & Staff List
   const fetchAdminStats = async () => {
     if (user.role === 'student') return;
     try {
@@ -160,7 +175,6 @@ const Dashboard = () => {
       const res = await axios.delete(`/api/complaints/${id}`);
       if (res.data.success) {
         fetchComplaints();
-        // If admin, update stats
         if (user.role !== 'student') fetchAdminStats();
       }
     } catch (err) {
@@ -195,6 +209,46 @@ const Dashboard = () => {
       }
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to update status.');
+    }
+  };
+
+  // Super Admin: Create Staff Account Handler
+  const handleCreateStaffSubmit = async (e) => {
+    e.preventDefault();
+    if (!newStaffName || !newStaffEmail || !newStaffPassword || !newStaffDept) {
+      setStaffError('Please fill in all required fields.');
+      return;
+    }
+
+    setStaffError('');
+    setStaffSuccess('');
+    setStaffCreating(true);
+
+    try {
+      const res = await axios.post('/api/admin/create-staff', {
+        name: newStaffName,
+        email: newStaffEmail,
+        password: newStaffPassword,
+        department: newStaffDept,
+        employeeId: newStaffEmpId,
+      });
+
+      setStaffCreating(false);
+      if (res.data.success) {
+        setStaffSuccess(res.data.message);
+        setNewStaffName('');
+        setNewStaffEmail('');
+        setNewStaffPassword('');
+        setNewStaffEmpId('');
+        fetchAdminStats();
+        setTimeout(() => {
+          setShowAddStaffModal(false);
+          setStaffSuccess('');
+        }, 1500);
+      }
+    } catch (err) {
+      setStaffCreating(false);
+      setStaffError(err.response?.data?.message || 'Failed to create Staff Admin account.');
     }
   };
 
@@ -247,7 +301,9 @@ const Dashboard = () => {
     'Artificial Intelligence and Machine Learning',
     'Computer and Communication Engineering',
     'Science and Humanities(1st Year)',
-    'Master of Business Administration(MBA)'
+    'Master of Business Administration(MBA)',
+    'Administration',
+    'Infrastructure',
   ];
 
   return (
@@ -256,22 +312,44 @@ const Dashboard = () => {
       {/* Welcome Banner */}
       <div className="flex flex-col gap-4 rounded-3xl bg-gradient-to-r from-primary to-primary-light p-6 text-white shadow-lg shadow-primary/10 md:flex-row md:items-center md:justify-between">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Welcome back, {user?.name}!</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-2xl font-bold tracking-tight">Welcome back, {user?.name}!</h2>
+            {user?.role === 'superadmin' && (
+              <span className="rounded-full bg-amber-400/20 text-amber-200 border border-amber-300/30 px-2.5 py-0.5 text-[10px] font-bold uppercase">
+                Super Admin
+              </span>
+            )}
+          </div>
           <p className="mt-1 text-sm font-medium text-blue-100/90">
             {user?.role === 'student'
               ? 'Campus Grievance Portal - submit issues and monitor active statuses.'
-              : 'Administrative Control Desk - track reports, allocate staff, and record actions.'}
+              : user?.role === 'superadmin'
+              ? 'Super Administrative Console - full management over complaints, staff, and campus accounts.'
+              : `Staff Control Desk (${user?.department || 'Department'}) - track & resolve assigned grievance tickets.`}
           </p>
         </div>
-        {user?.role === 'student' && (
-          <Link
-            to="/submit-complaint"
-            className="flex items-center justify-center gap-1.5 self-start rounded-xl bg-white px-5 py-3 text-sm font-bold text-primary shadow-md hover:bg-slate-50 md:self-auto"
-          >
-            <Plus className="h-4 w-4" />
-            File a Complaint
-          </Link>
-        )}
+
+        <div className="flex items-center gap-3">
+          {user?.role === 'student' && (
+            <Link
+              to="/submit-complaint"
+              className="flex items-center justify-center gap-1.5 self-start rounded-xl bg-white px-5 py-3 text-sm font-bold text-primary shadow-md hover:bg-slate-50 md:self-auto"
+            >
+              <Plus className="h-4 w-4" />
+              File a Complaint
+            </Link>
+          )}
+
+          {user?.role === 'superadmin' && (
+            <button
+              onClick={() => setShowAddStaffModal(true)}
+              className="flex items-center justify-center gap-2 self-start rounded-xl bg-white px-4 py-2.5 text-xs font-bold text-primary shadow-md hover:bg-slate-50 transition-all md:self-auto"
+            >
+              <UserPlus className="h-4 w-4" />
+              Add Staff Admin
+            </button>
+          )}
+        </div>
       </div>
 
       {/* RENDER STUDENT VIEW */}
@@ -367,9 +445,9 @@ const Dashboard = () => {
 
             <button
               type="button"
-              onClick={() => setActiveTab('complaints')}
+              onClick={() => setActiveTab('staff')}
               className={`flex items-center gap-4 rounded-3xl border p-5 shadow-sm transition-all text-left cursor-pointer w-full ${
-                activeTab === 'complaints'
+                activeTab === 'staff'
                   ? 'border-primary bg-primary/5 dark:border-primary-light dark:bg-slate-900'
                   : 'border-slate-200 bg-white hover:border-primary dark:border-slate-800 dark:bg-slate-900'
               }`}
@@ -432,7 +510,6 @@ const Dashboard = () => {
                 ) : (
                   <p className="text-xs text-slate-400">No data available</p>
                 )}
-                {/* Custom list description */}
                 <div className="mt-2 flex flex-wrap justify-center gap-x-3 gap-y-1 overflow-y-auto max-h-16 text-[9px] font-bold text-slate-500">
                   {stats.departmentStats.map((item, idx) => (
                     <span key={item.department} className="flex items-center gap-1">
@@ -447,11 +524,11 @@ const Dashboard = () => {
         </>
       )}
 
-      {/* COMPLAINTS FILTERING SECTION */}
+      {/* COMPLAINTS / DIRECTORY TAB SECTION */}
       <div className="rounded-3xl border border-slate-200/80 bg-white p-5 shadow-sm dark:border-slate-800/80 dark:bg-slate-900">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between w-full border-b border-slate-100 dark:border-slate-800 pb-3">
           {user?.role !== 'student' ? (
-            <div className="flex gap-6">
+            <div className="flex flex-wrap gap-4 md:gap-6">
               <button
                 type="button"
                 onClick={() => setActiveTab('complaints')}
@@ -472,7 +549,18 @@ const Dashboard = () => {
                     : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300'
                 }`}
               >
-                Registered Students Directory
+                Registered Students ({stats?.totalStudents || 0})
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('staff')}
+                className={`text-sm font-bold pb-1 transition-all relative ${
+                  activeTab === 'staff'
+                    ? 'text-primary dark:text-primary-light border-b-2 border-primary'
+                    : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300'
+                }`}
+              >
+                Registered Staff & Admins ({staffList.length})
               </button>
             </div>
           ) : (
@@ -503,6 +591,14 @@ const Dashboard = () => {
             </form>
           )}
         </div>
+
+        {/* Regular Admin Scoped View Badge */}
+        {user?.role === 'admin' && activeTab === 'complaints' && (
+          <div className="mt-3 inline-flex items-center gap-2 rounded-xl bg-blue-50 border border-blue-200 px-3 py-1.5 text-xs font-semibold text-blue-700 dark:bg-blue-950/30 dark:border-blue-900/40 dark:text-blue-300">
+            <ShieldCheck className="h-4 w-4" />
+            Showing complaints assigned specifically to: <strong>{user.name}</strong>
+          </div>
+        )}
 
         {/* Dropdowns row */}
         {activeTab === 'complaints' && (
@@ -548,7 +644,7 @@ const Dashboard = () => {
               <option value="High" className="dark:bg-slate-900">High Priority</option>
             </select>
 
-            {user.role !== 'student' && (
+            {user.role === 'superadmin' && (
               <select
                 value={deptFilter}
                 onChange={(e) => { setDeptFilter(e.target.value); setPage(1); }}
@@ -576,304 +672,467 @@ const Dashboard = () => {
         {activeTab === 'complaints' && (
           <>
             {loading ? (
-          <div className="mt-6 space-y-3">
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="h-16 w-full rounded-2xl shimmer-loading"></div>
-            ))}
-          </div>
-        ) : error ? (
-          <div className="mt-6 text-center text-xs text-rose-500">{error}</div>
-        ) : complaints.length === 0 ? (
-          <div className="mt-8 flex flex-col items-center justify-center p-6 text-center">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-400 dark:bg-slate-800">
-              <FileText className="h-6 w-6" />
-            </div>
-            <h4 className="mt-3 text-sm font-bold text-slate-700 dark:text-slate-300">No grievances found</h4>
-            <p className="mt-1 max-w-xs text-xs text-slate-400">
-              Try adjusting your search criteria or filter tags.
-            </p>
-          </div>
-        ) : (
-          <div className="mt-6 overflow-x-auto">
-            
-            {/* RENDER STUDENT COMPLAINTS (Cards or Simple Row) */}
-            {user.role === 'student' ? (
-              <div className="space-y-4">
-                {complaints.map((item) => (
-                  <div
-                    key={item._id}
-                    className="flex flex-col gap-4 rounded-2xl border border-slate-200 p-4 transition-all hover:border-primary/40 sm:flex-row sm:items-center sm:justify-between dark:border-slate-800 dark:hover:border-primary-light/45"
-                  >
-                    <div className="space-y-1.5">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold ${getStatusBadge(item.status)}`}>
-                          {item.status}
-                        </span>
-                        <span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold ${getPriorityBadge(item.priority)}`}>
-                          {item.priority}
-                        </span>
-                        <span className="text-[10px] font-medium text-slate-400">
-                          {new Date(item.createdAt).toLocaleDateString()}
-                        </span>
-                      </div>
-                      <h4 className="text-sm font-bold text-slate-800 dark:text-white">{item.title}</h4>
-                      <div className="flex gap-4 text-[10px] font-bold text-slate-400">
-                        <span>Cat: {item.category}</span>
-                        <span>Loc: {item.location}</span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2.5 sm:self-center">
-                      <Link
-                        to={`/complaints/${item._id}`}
-                        className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-750"
-                        title="View Details"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Link>
-                      
-                      {item.status === 'Submitted' && (
-                        <>
-                          <button
-                            onClick={() => navigate('/submit-complaint', { state: { complaint: item } })}
-                            className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 hover:bg-indigo-100 dark:bg-indigo-950/20 dark:text-indigo-400"
-                            title="Edit Complaint"
-                          >
-                            <Edit2 className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteComplaint(item._id)}
-                            className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 dark:bg-rose-950/20 dark:text-rose-400"
-                            title="Delete Complaint"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </div>
+              <div className="mt-6 space-y-3">
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="h-16 w-full rounded-2xl shimmer-loading"></div>
                 ))}
               </div>
+            ) : error ? (
+              <div className="mt-6 text-center text-xs text-rose-500">{error}</div>
+            ) : complaints.length === 0 ? (
+              <div className="mt-8 flex flex-col items-center justify-center p-6 text-center">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-400 dark:bg-slate-800">
+                  <FileText className="h-6 w-6" />
+                </div>
+                <h4 className="mt-3 text-sm font-bold text-slate-700 dark:text-slate-300">No grievances found</h4>
+                <p className="mt-1 max-w-xs text-xs text-slate-400">
+                  {user.role === 'admin'
+                    ? 'No complaints currently assigned to you. Super Admin assigns incoming complaints.'
+                    : 'Try adjusting your search criteria or filter tags.'}
+                </p>
+              </div>
             ) : (
-              /* RENDER ADMIN COMPLAINTS (Professional Table layout) */
-              <table className="w-full border-collapse text-left text-xs">
-                <thead>
-                  <tr className="border-b border-slate-100 bg-slate-50 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:border-slate-800 dark:bg-slate-850">
-                    <th className="py-3 px-4">Student</th>
-                    <th className="py-3 px-4">Title</th>
-                    <th className="py-3 px-4">Category</th>
-                    <th className="py-3 px-4">Priority</th>
-                    <th className="py-3 px-4">Status</th>
-                    <th className="py-3 px-4">Assigned To</th>
-                    <th className="py-3 px-4 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
-                  {complaints.map((item) => (
-                    <tr
-                      key={item._id}
-                      className="group transition-colors hover:bg-slate-50/50 dark:hover:bg-slate-850/40"
-                    >
-                      <td className="py-3.5 px-4">
-                        <div className="font-bold text-slate-800 dark:text-slate-200">
-                          {item.studentId?.name || 'Anonymous'}
-                        </div>
-                        <div className="text-[10px] text-slate-400">
-                          {item.studentId?.department || 'N/A'} • {item.studentId?.rollNumber || ''}
-                        </div>
-                      </td>
-                      <td className="py-3.5 px-4 font-semibold text-slate-700 dark:text-slate-300 max-w-xs truncate">
-                        {item.title}
-                      </td>
-                      <td className="py-3.5 px-4 text-slate-500 dark:text-slate-400">
-                        {item.category}
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold ${getPriorityBadge(item.priority)}`}>
-                          {item.priority}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        {updatingStatusId === item._id ? (
-                          <div className="flex items-center gap-1">
-                            <select
-                              value={selectedStatus}
-                              onChange={(e) => setSelectedStatus(e.target.value)}
-                              className="rounded-lg border border-slate-200 bg-white p-1 text-[10px] dark:border-slate-800 dark:bg-slate-900"
-                            >
-                              <option value="Submitted">Submitted</option>
-                              <option value="Assigned">Assigned</option>
-                              <option value="Resolved">Resolved</option>
-                            </select>
-                            <button
-                              onClick={() => handleStatusUpdate(item._id)}
-                              className="rounded-lg bg-primary px-2 py-1 text-[9px] font-bold text-white"
-                            >
-                              Go
-                            </button>
-                            <button
-                              onClick={() => setUpdatingStatusId(null)}
-                              className="rounded-lg border border-slate-200 p-1 text-[9px]"
-                            >
-                              X
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-1.5">
-                            <span
-                              className={`rounded-full px-2.5 py-0.5 text-[9px] font-bold ${getStatusBadge(
-                                item.status
-                              )}`}
-                            >
+              <div className="mt-6 overflow-x-auto">
+                {user.role === 'student' ? (
+                  <div className="space-y-4">
+                    {complaints.map((item) => (
+                      <div
+                        key={item._id}
+                        className="flex flex-col gap-4 rounded-2xl border border-slate-200 p-4 transition-all hover:border-primary/40 sm:flex-row sm:items-center sm:justify-between dark:border-slate-800 dark:hover:border-primary-light/45"
+                      >
+                        <div className="space-y-1.5">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold ${getStatusBadge(item.status)}`}>
                               {item.status}
                             </span>
-                            <button
-                              onClick={() => {
-                                setUpdatingStatusId(item._id);
-                                setSelectedStatus(item.status);
-                              }}
-                              className="rounded-lg p-1 text-slate-450 hover:text-primary hover:bg-slate-100 dark:text-slate-500 dark:hover:text-primary-light dark:hover:bg-slate-800 transition-colors"
-                              title="Edit Status"
-                            >
-                              <Edit2 className="h-3 w-3" />
-                            </button>
-                          </div>
-                        )}
-                      </td>
-                      <td className="py-3.5 px-4 text-slate-500 dark:text-slate-400">
-                        {assigningId === item._id ? (
-                          <div className="flex items-center gap-1">
-                            <input
-                              type="text"
-                              value={selectedStaff}
-                              onChange={(e) => setSelectedStaff(e.target.value)}
-                              placeholder="Type Staff Name"
-                              className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[10px] dark:border-slate-800 dark:bg-slate-900 max-w-[120px] outline-none focus:border-primary focus:ring-1 focus:ring-primary/10"
-                            />
-                            <button
-                              onClick={() => handleAssign(item._id)}
-                              className="rounded-lg bg-primary px-2 py-1 text-[9px] font-bold text-white"
-                            >
-                              Save
-                            </button>
-                            <button
-                              onClick={() => setAssigningId(null)}
-                              className="rounded-lg border border-slate-200 p-1 text-[9px]"
-                            >
-                              X
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                              {item.assignedTo || 'Unassigned'}
+                            <span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold ${getPriorityBadge(item.priority)}`}>
+                              {item.priority}
                             </span>
-                            <button
-                              onClick={() => {
-                                setAssigningId(item._id);
-                                setSelectedStaff(item.assignedTo || '');
-                              }}
-                              className="rounded-lg p-1 text-slate-450 hover:text-primary hover:bg-slate-100 dark:text-slate-500 dark:hover:text-primary-light dark:hover:bg-slate-800 transition-colors"
-                              title="Assign Staff"
-                            >
-                              <Edit2 className="h-3 w-3" />
-                            </button>
+                            <span className="text-[10px] font-medium text-slate-400">
+                              {new Date(item.createdAt).toLocaleDateString()}
+                            </span>
                           </div>
-                        )}
-                      </td>
-                      <td className="py-3.5 px-4 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
+                          <h4 className="text-sm font-bold text-slate-800 dark:text-white">{item.title}</h4>
+                          <div className="flex gap-4 text-[10px] font-bold text-slate-400">
+                            <span>Cat: {item.category}</span>
+                            <span>Loc: {item.location}</span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2.5 sm:self-center">
                           <Link
                             to={`/complaints/${item._id}`}
-                            className="flex h-7.5 w-7.5 items-center justify-center rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-750"
+                            className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-750"
                             title="View Details"
                           >
-                            <Eye className="h-3.5 w-3.5" />
+                            <Eye className="h-4 w-4" />
                           </Link>
-                          {user.role !== 'student' && (
-                            <button
-                              onClick={() => handleDeleteComplaint(item._id)}
-                              className="flex h-7.5 w-7.5 items-center justify-center rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 dark:bg-rose-950/20 dark:text-rose-400"
-                              title="Delete Complaint"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
+                          
+                          {item.status === 'Submitted' && (
+                            <>
+                              <button
+                                onClick={() => navigate('/submit-complaint', { state: { complaint: item } })}
+                                className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 hover:bg-indigo-100 dark:bg-indigo-950/20 dark:text-indigo-400"
+                                title="Edit Complaint"
+                              >
+                                <Edit2 className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteComplaint(item._id)}
+                                className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 dark:bg-rose-950/20 dark:text-rose-400"
+                                title="Delete Complaint"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </>
                           )}
                         </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  /* RENDER ADMIN COMPLAINTS TABLE */
+                  <table className="w-full border-collapse text-left text-xs">
+                    <thead>
+                      <tr className="border-b border-slate-100 bg-slate-50 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:border-slate-800 dark:bg-slate-850">
+                        <th className="py-3 px-4">Student</th>
+                        <th className="py-3 px-4">Title</th>
+                        <th className="py-3 px-4">Category</th>
+                        <th className="py-3 px-4">Priority</th>
+                        <th className="py-3 px-4">Status</th>
+                        <th className="py-3 px-4">Assigned To</th>
+                        <th className="py-3 px-4 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
+                      {complaints.map((item) => (
+                        <tr
+                          key={item._id}
+                          className="group transition-colors hover:bg-slate-50/50 dark:hover:bg-slate-850/40"
+                        >
+                          <td className="py-3.5 px-4">
+                            <div className="font-bold text-slate-800 dark:text-slate-200">
+                              {item.studentId?.name || 'Anonymous'}
+                            </div>
+                            <div className="text-[10px] text-slate-400">
+                              {item.studentId?.department || 'N/A'} • {item.studentId?.rollNumber || ''}
+                            </div>
+                          </td>
+                          <td className="py-3.5 px-4 font-semibold text-slate-700 dark:text-slate-300 max-w-xs truncate">
+                            {item.title}
+                          </td>
+                          <td className="py-3.5 px-4 text-slate-500 dark:text-slate-400">
+                            {item.category}
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold ${getPriorityBadge(item.priority)}`}>
+                              {item.priority}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4">
+                            {updatingStatusId === item._id ? (
+                              <div className="flex items-center gap-1">
+                                <select
+                                  value={selectedStatus}
+                                  onChange={(e) => setSelectedStatus(e.target.value)}
+                                  className="rounded-lg border border-slate-200 bg-white p-1 text-[10px] dark:border-slate-800 dark:bg-slate-900"
+                                >
+                                  <option value="Submitted">Submitted</option>
+                                  <option value="Assigned">Assigned</option>
+                                  <option value="Resolved">Resolved</option>
+                                </select>
+                                <button
+                                  onClick={() => handleStatusUpdate(item._id)}
+                                  className="rounded-lg bg-primary px-2 py-1 text-[9px] font-bold text-white"
+                                >
+                                  Go
+                                </button>
+                                <button
+                                  onClick={() => setUpdatingStatusId(null)}
+                                  className="rounded-lg border border-slate-200 p-1 text-[9px]"
+                                >
+                                  X
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1.5">
+                                <span
+                                  className={`rounded-full px-2.5 py-0.5 text-[9px] font-bold ${getStatusBadge(
+                                    item.status
+                                  )}`}
+                                >
+                                  {item.status}
+                                </span>
+                                <button
+                                  onClick={() => {
+                                    setUpdatingStatusId(item._id);
+                                    setSelectedStatus(item.status);
+                                  }}
+                                  className="rounded-lg p-1 text-slate-450 hover:text-primary hover:bg-slate-100 dark:text-slate-500 dark:hover:text-primary-light dark:hover:bg-slate-800 transition-colors"
+                                  title="Edit Status"
+                                >
+                                  <Edit2 className="h-3 w-3" />
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                          <td className="py-3.5 px-4 text-slate-500 dark:text-slate-400">
+                            {assigningId === item._id ? (
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="text"
+                                  value={selectedStaff}
+                                  onChange={(e) => setSelectedStaff(e.target.value)}
+                                  placeholder="Type Staff Name"
+                                  className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[10px] dark:border-slate-800 dark:bg-slate-900 max-w-[120px] outline-none focus:border-primary focus:ring-1 focus:ring-primary/10"
+                                />
+                                <button
+                                  onClick={() => handleAssign(item._id)}
+                                  className="rounded-lg bg-primary px-2 py-1 text-[9px] font-bold text-white"
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  onClick={() => setAssigningId(null)}
+                                  className="rounded-lg border border-slate-200 p-1 text-[9px]"
+                                >
+                                  X
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                                  {item.assignedTo || 'Unassigned'}
+                                </span>
+                                {user.role === 'superadmin' && (
+                                  <button
+                                    onClick={() => {
+                                      setAssigningId(item._id);
+                                      setSelectedStaff(item.assignedTo || '');
+                                    }}
+                                    className="rounded-lg p-1 text-slate-450 hover:text-primary hover:bg-slate-100 dark:text-slate-500 dark:hover:text-primary-light dark:hover:bg-slate-800 transition-colors"
+                                    title="Assign Staff"
+                                  >
+                                    <Edit2 className="h-3 w-3" />
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </td>
+                          <td className="py-3.5 px-4 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <Link
+                                to={`/complaints/${item._id}`}
+                                className="flex h-7.5 w-7.5 items-center justify-center rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-750"
+                                title="View Details"
+                              >
+                                <Eye className="h-3.5 w-3.5" />
+                              </Link>
+                              {user.role === 'superadmin' && (
+                                <button
+                                  onClick={() => handleDeleteComplaint(item._id)}
+                                  className="flex h-7.5 w-7.5 items-center justify-center rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 dark:bg-rose-950/20 dark:text-rose-400"
+                                  title="Delete Complaint"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+
+                {/* PAGINATION SECTION */}
+                {pages > 1 && (
+                  <div className="mt-6 flex items-center justify-between border-t border-slate-100 pt-4 dark:border-slate-800">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      Page {page} of {pages} ({totalComplaintsCount} items)
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        disabled={page === 1}
+                        onClick={() => setPage(page - 1)}
+                        className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold hover:bg-slate-50 disabled:opacity-40 dark:border-slate-800 dark:hover:bg-slate-800"
+                      >
+                        Previous
+                      </button>
+                      <button
+                        disabled={page === pages}
+                        onClick={() => setPage(page + 1)}
+                        className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold hover:bg-slate-50 disabled:opacity-40 dark:border-slate-800 dark:hover:bg-slate-800"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* REGISTERED STUDENTS DIRECTORY TAB */}
+        {activeTab === 'students' && user?.role !== 'student' && (
+          <div className="mt-6 overflow-x-auto">
+            {loadingStudents ? (
+              <div className="flex flex-col items-center justify-center py-12">
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+                <p className="mt-3 text-xs text-slate-400">Loading student directory...</p>
+              </div>
+            ) : students.length > 0 ? (
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-100 dark:border-slate-800 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    <th className="pb-3 pl-4">Student Name</th>
+                    <th className="pb-3">Register Number</th>
+                    <th className="pb-3">Email Address</th>
+                    <th className="pb-3">Department</th>
+                    <th className="pb-3 pr-4">Year of Study</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50 dark:divide-slate-800/40">
+                  {students.map((student) => (
+                    <tr key={student._id} className="text-xs hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-all">
+                      <td className="py-4 pl-4 font-bold text-slate-800 dark:text-white">{student.name}</td>
+                      <td className="py-4 font-mono font-semibold text-slate-600 dark:text-slate-300">{student.rollNumber}</td>
+                      <td className="py-4 text-slate-500 dark:text-slate-400">{student.email || 'N/A'}</td>
+                      <td className="py-4 font-semibold text-slate-600 dark:text-slate-300">{student.department || 'N/A'}</td>
+                      <td className="py-4 pr-4 font-semibold text-slate-600 dark:text-slate-300">{student.year || 'N/A'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="text-center py-12 text-sm text-slate-400">No registered students found. Registration is 100% fresh!</div>
+            )}
+          </div>
+        )}
+
+        {/* REGISTERED STAFF / ADMIN DIRECTORY TAB */}
+        {activeTab === 'staff' && user?.role !== 'student' && (
+          <div className="mt-6 overflow-x-auto">
+            {staffList.length > 0 ? (
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-100 dark:border-slate-800 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    <th className="pb-3 pl-4">Staff / Admin Name</th>
+                    <th className="pb-3">Username / Email</th>
+                    <th className="pb-3">Department</th>
+                    <th className="pb-3">Employee ID</th>
+                    <th className="pb-3 pr-4">Account Role</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50 dark:divide-slate-800/40">
+                  {staffList.map((st) => (
+                    <tr key={st._id} className="text-xs hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-all">
+                      <td className="py-4 pl-4 font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                        <UserCheck className="h-4 w-4 text-primary" />
+                        {st.name}
+                      </td>
+                      <td className="py-4 font-mono font-semibold text-slate-600 dark:text-slate-300">{st.email}</td>
+                      <td className="py-4 font-semibold text-slate-600 dark:text-slate-300">{st.department || 'N/A'}</td>
+                      <td className="py-4 font-mono text-slate-500 dark:text-slate-400">{st.employeeId || 'EMP-001'}</td>
+                      <td className="py-4 pr-4">
+                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[9px] font-bold uppercase ${
+                          st.role === 'superadmin' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300' : 'bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300'
+                        }`}>
+                          {st.role}
+                        </span>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+            ) : (
+              <div className="text-center py-12 text-sm text-slate-400">No staff members found.</div>
             )}
+          </div>
+        )}
+      </div>
 
-            {/* PAGINATION SECTION */}
-            {pages > 1 && (
-              <div className="mt-6 flex items-center justify-between border-t border-slate-100 pt-4 dark:border-slate-800">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                  Page {page} of {pages} ({totalComplaintsCount} items)
-                </span>
-                <div className="flex items-center gap-2">
-                  <button
-                    disabled={page === 1}
-                    onClick={() => setPage(page - 1)}
-                    className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold hover:bg-slate-50 disabled:opacity-40 dark:border-slate-800 dark:hover:bg-slate-800"
-                  >
-                    Previous
-                  </button>
-                  <button
-                    disabled={page === pages}
-                    onClick={() => setPage(page + 1)}
-                    className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold hover:bg-slate-50 disabled:opacity-40 dark:border-slate-800 dark:hover:bg-slate-800"
-                  >
-                    Next
-                  </button>
-                </div>
+      {/* SUPER ADMIN ADD STAFF MODAL */}
+      {showAddStaffModal && user?.role === 'superadmin' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900 relative">
+            <button
+              onClick={() => setShowAddStaffModal(false)}
+              className="absolute top-5 right-5 text-slate-400 hover:text-slate-600 dark:hover:text-white"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary dark:bg-primary-light/10 dark:text-primary-light">
+                <UserPlus className="h-6 w-6" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-slate-800 dark:text-white">Add New Staff Admin</h3>
+                <p className="text-xs text-slate-400">Create an admin account for a department in-charge</p>
+              </div>
+            </div>
+
+            {staffError && (
+              <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-semibold text-rose-600 dark:border-rose-900/40 dark:bg-rose-950/20 dark:text-rose-400">
+                {staffError}
               </div>
             )}
 
-          </div>
-        )}
-        </>
-      )}
+            {staffSuccess && (
+              <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs font-semibold text-emerald-600 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-400">
+                {staffSuccess}
+              </div>
+            )}
 
-      {/* REGISTERED STUDENTS DIRECTORY */}
-      {activeTab === 'students' && user?.role !== 'student' && (
-        <div className="mt-6 overflow-x-auto">
-          {loadingStudents ? (
-            <div className="flex flex-col items-center justify-center py-12">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
-              <p className="mt-3 text-xs text-slate-400">Loading student directory...</p>
-            </div>
-          ) : students.length > 0 ? (
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-slate-100 dark:border-slate-800 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                  <th className="pb-3 pl-4">Student Name</th>
-                  <th className="pb-3">Register Number</th>
-                  <th className="pb-3">Email Address</th>
-                  <th className="pb-3">Department</th>
-                  <th className="pb-3 pr-4">Year of Study</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50 dark:divide-slate-800/40">
-                {students.map((student) => (
-                  <tr key={student._id} className="text-xs hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-all">
-                    <td className="py-4 pl-4 font-bold text-slate-800 dark:text-white">{student.name}</td>
-                    <td className="py-4 font-mono font-semibold text-slate-600 dark:text-slate-300">{student.rollNumber}</td>
-                    <td className="py-4 text-slate-500 dark:text-slate-400">{student.email || 'N/A'}</td>
-                    <td className="py-4 font-semibold text-slate-600 dark:text-slate-300">{student.department || 'N/A'}</td>
-                    <td className="py-4 pr-4 font-semibold text-slate-600 dark:text-slate-300">{student.year || 'N/A'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <div className="text-center py-12 text-sm text-slate-400">No registered students found.</div>
-          )}
+            <form onSubmit={handleCreateStaffSubmit} className="mt-5 space-y-4">
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Staff Full Name</label>
+                <input
+                  type="text"
+                  required
+                  value={newStaffName}
+                  onChange={(e) => setNewStaffName(e.target.value)}
+                  placeholder="e.g. Prof. Sarah Jenkins"
+                  className="mt-1 w-full rounded-2xl border border-slate-200 py-3 px-4 text-xs bg-transparent outline-none focus:border-primary dark:border-slate-800 dark:text-white"
+                  disabled={staffCreating}
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Username / Email</label>
+                <input
+                  type="text"
+                  required
+                  value={newStaffEmail}
+                  onChange={(e) => setNewStaffEmail(e.target.value)}
+                  placeholder="e.g. nit.incharge.eee"
+                  className="mt-1 w-full rounded-2xl border border-slate-200 py-3 px-4 text-xs bg-transparent outline-none focus:border-primary dark:border-slate-800 dark:text-white font-mono"
+                  disabled={staffCreating}
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Department</label>
+                <select
+                  value={newStaffDept}
+                  onChange={(e) => setNewStaffDept(e.target.value)}
+                  className="mt-1 w-full rounded-2xl border border-slate-200 py-3 px-4 text-xs bg-transparent outline-none focus:border-primary dark:border-slate-800 dark:text-white"
+                  disabled={staffCreating}
+                >
+                  {studentDepts.map((d) => (
+                    <option key={d} value={d} className="dark:bg-slate-900">{d}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Account Password</label>
+                <input
+                  type="password"
+                  required
+                  value={newStaffPassword}
+                  onChange={(e) => setNewStaffPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="mt-1 w-full rounded-2xl border border-slate-200 py-3 px-4 text-xs bg-transparent outline-none focus:border-primary dark:border-slate-800 dark:text-white"
+                  disabled={staffCreating}
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Employee ID (Optional)</label>
+                <input
+                  type="text"
+                  value={newStaffEmpId}
+                  onChange={(e) => setNewStaffEmpId(e.target.value)}
+                  placeholder="e.g. EMP-003"
+                  className="mt-1 w-full rounded-2xl border border-slate-200 py-3 px-4 text-xs bg-transparent outline-none focus:border-primary dark:border-slate-800 dark:text-white font-mono"
+                  disabled={staffCreating}
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={staffCreating}
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-primary py-3.5 text-xs font-bold text-white shadow-lg shadow-primary/20 hover:bg-primary-hover transition-all"
+              >
+                {staffCreating ? (
+                  <>
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+                    Creating Staff Admin Account...
+                  </>
+                ) : (
+                  <>
+                    <UserPlus className="h-4 w-4" />
+                    Create Staff Admin Account
+                  </>
+                )}
+              </button>
+            </form>
+          </div>
         </div>
       )}
-    </div>
 
     </div>
   );

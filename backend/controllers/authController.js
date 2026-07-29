@@ -135,11 +135,15 @@ exports.getMe = async (req, res) => {
 // @access  Private
 exports.updateProfile = async (req, res) => {
   try {
-    const { name, email, department, year, employeeId } = req.body;
+    const { name, email, department, year, employeeId, newPassword } = req.body;
 
-    const fieldsToUpdate = {};
-    if (name) fieldsToUpdate.name = name;
-    if (department) fieldsToUpdate.department = department;
+    const user = await User.findById(req.user.id).select('+password');
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    if (name) user.name = name;
+    if (department) user.department = department;
 
     if (req.user.role === 'student') {
       if (email) {
@@ -149,26 +153,34 @@ exports.updateProfile = async (req, res) => {
             message: 'Please provide a valid email address',
           });
         }
-        fieldsToUpdate.email = email.toLowerCase();
+        user.email = email.toLowerCase();
       }
-      if (year) fieldsToUpdate.year = year;
+      if (year) user.year = year;
     } else {
-      if (email) fieldsToUpdate.email = email.toLowerCase();
-      if (employeeId) fieldsToUpdate.employeeId = employeeId;
+      if (email) user.email = email.toLowerCase();
+      if (employeeId) user.employeeId = employeeId;
     }
 
     // Check if email is already taken by another user
     if (email && email.toLowerCase() !== req.user.email) {
       const emailExists = await User.findOne({ email: email.toLowerCase() });
-      if (emailExists) {
-        return res.status(400).json({ success: false, message: 'Email address already in use' });
+      if (emailExists && emailExists._id.toString() !== req.user.id) {
+        return res.status(400).json({ success: false, message: 'Username / Email address already in use' });
       }
     }
 
-    const user = await User.findByIdAndUpdate(req.user.id, fieldsToUpdate, {
-      new: true,
-      runValidators: true,
-    });
+    // If changing password
+    if (newPassword && newPassword.trim() !== '') {
+      if (newPassword.length < 6) {
+        return res.status(400).json({
+          success: false,
+          message: 'New Password must be at least 6 characters long',
+        });
+      }
+      user.password = newPassword;
+    }
+
+    await user.save();
 
     res.status(200).json({
       success: true,

@@ -5,6 +5,7 @@ const {
   updateComplaintStatus,
   getStaffList,
   getStudentsList,
+  createStaffAdmin,
 } = require('../controllers/adminController');
 const { protect, authorize } = require('../middleware/authMiddleware');
 
@@ -16,6 +17,7 @@ router.use(authorize('admin', 'superadmin'));
 router.get('/stats', getDashboardStats);
 router.get('/staff', getStaffList);
 router.get('/students', getStudentsList);
+router.post('/create-staff', createStaffAdmin);
 router.put('/assign/:id', assignComplaint);
 router.put('/status/:id', updateComplaintStatus);
 

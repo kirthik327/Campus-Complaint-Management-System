@@ -90,11 +90,10 @@ exports.getComplaints = async (req, res) => {
       // Students can only see their own complaints
       query.studentId = req.user.id;
     } else if (req.user.role === 'admin') {
-      // Admins see complaints assigned to them, OR unassigned complaints, OR all (super admin sees all)
-      // So if not superadmin:
-      query.$or = [{ assignedTo: req.user.name }, { assignedTo: '' }, { assignedTo: null }];
+      // Regular Admins only see complaints assigned to them
+      query.assignedTo = req.user.name;
     }
-    // Superadmin doesn't have restrictions (query contains all)
+    // Superadmin has no restrictions (views all complaints)
 
     // 2. Apply Filters
     if (category) query.category = category;
